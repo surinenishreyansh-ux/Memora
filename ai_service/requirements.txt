@@ -1,0 +1,7 @@
+flask
+deepface
+numpy
+opencv-python
+scikit-learn
+requests
+tf-keras

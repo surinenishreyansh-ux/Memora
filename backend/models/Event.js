@@ -28,6 +28,16 @@ const eventSchema = mongoose.Schema(
       enum: ['pending', 'processing', 'completed', 'failed'],
       default: 'pending',
     },
+    paymentStatus: {
+      type: String,
+      enum: ['unpaid', 'paid'],
+      default: 'unpaid',
+    },
+    planType: {
+      type: String,
+      enum: ['basic', 'pro', 'premium', 'none'],
+      default: 'none',
+    },
   },
   {
     timestamps: true,

@@ -12,6 +12,8 @@ import EventDetails from './pages/EventDetails';
 import GuestEvent from './pages/GuestEvent';
 import FaceSelect from './pages/FaceSelect';
 import Results from './pages/Results';
+import Settings from './pages/Settings';
+import Pricing from './pages/Pricing';
 
 function App() {
   return (
@@ -37,6 +39,12 @@ function App() {
           } />
           <Route path="/events/:eventId" element={
             <ProtectedRoute><EventDetails /></ProtectedRoute>
+          } />
+          <Route path="/settings" element={
+            <ProtectedRoute><Settings /></ProtectedRoute>
+          } />
+          <Route path="/pricing/:eventId" element={
+            <ProtectedRoute><Pricing /></ProtectedRoute>
           } />
         </Routes>
       </Router>

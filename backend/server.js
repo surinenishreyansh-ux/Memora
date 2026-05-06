@@ -40,6 +40,7 @@ app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/events', require('./routes/eventRoutes'));
 app.use('/api/photos', require('./routes/photoRoutes'));
 app.use('/api/ai', require('./routes/aiRoutes'));
+app.use('/api/memora', require('./routes/memoraRoutes'));
 
 // Root endpoint
 app.get('/', (req, res) => {

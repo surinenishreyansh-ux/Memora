@@ -27,14 +27,14 @@ const processEvent = async (req, res, next) => {
     const eventId = req.params.eventId;
     const event = await Event.findById(eventId);
 
-    if (!event || event.studioId.toString() !== req.user._id.toString()) {
+    if (!event) {
       res.status(404);
       throw new Error('Event not found');
     }
 
-    console.log(`\n[PRECISION-AI] Starting High-Precision Processing for: ${event.name}`);
+    console.log(`\n[AI-OVERHAUL] Starting Processing for: ${event.name}`);
     
-    // Clear old data
+    // Clear old data for this event
     await Face.deleteMany({ eventId });
     await PersonCluster.deleteMany({ eventId });
     await Photo.updateMany({ eventId }, { processed: false });
@@ -42,55 +42,59 @@ const processEvent = async (req, res, next) => {
     event.processingStatus = 'processing';
     await event.save();
 
+    // Run in background
     (async () => {
       try {
         const photos = await Photo.find({ eventId });
         const aiData = await processPhotosWithLocalAi(eventId, photos);
         
-        console.log(`[PRECISION-AI] Service returned ${aiData.faces.length} faces and ${Object.keys(aiData.clusters).length} clusters.`);
+        console.log(`[AI-OVERHAUL] Service returned ${aiData.faces.length} faces and ${aiData.clusters.length} clusters.`);
 
         // 1. Create PersonCluster records
-        const clusterMap = {}; 
-        
-        for (const [label, photoIdsRaw] of Object.entries(aiData.clusters)) {
-          // Remove duplicates
-          const photoIds = [...new Set(photoIdsRaw)];
-          
-          const cluster = await PersonCluster.create({
-            eventId,
-            clusterName: `Identity ${label}`,
-            photoIds,
-            bestPhotoIds: photoIds.slice(0, 3)
-          });
-          clusterMap[label] = cluster._id;
+        const clusterIdToMongoId = {};
+        for (const clusterData of aiData.clusters) {
+            const cluster = await PersonCluster.create({
+                eventId,
+                clusterId: clusterData.clusterId,
+                photoIds: clusterData.photoIds, // AI service returns IDs we sent
+                faceIds: [] // Will populate after creating Face records
+            });
+            clusterIdToMongoId[clusterData.clusterId] = cluster._id;
         }
 
-        // 2. Create Face records with embeddings
+        // 2. Create Face records
+        const faceInternalIdToMongoId = {};
         for (const faceData of aiData.faces) {
-          await Face.create({
-            eventId,
-            photoId: faceData.photoId,
-            faceExternalId: `local-${faceData.photoId}-${Math.random().toString(36).substr(2, 5)}`,
-            boundingBox: faceData.boundingBox,
-            confidence: faceData.confidence,
-            embedding: faceData.embedding, 
-            personClusterId: clusterMap[faceData.clusterId]
-          });
+            const face = await Face.create({
+                eventId,
+                photoId: faceData.photoId,
+                faceIndex: faceData.faceIndex,
+                boundingBox: faceData.boundingBox,
+                confidence: faceData.confidence,
+                embedding: faceData.embedding,
+                personClusterId: clusterIdToMongoId[faceData.clusterId]
+            });
+            faceInternalIdToMongoId[faceData.id] = face._id;
+            
+            // Link face to cluster
+            await PersonCluster.findByIdAndUpdate(clusterIdToMongoId[faceData.clusterId], {
+                $push: { faceIds: face._id }
+            });
         }
 
         await Photo.updateMany({ eventId }, { processed: true });
 
         event.processingStatus = 'completed';
         await event.save();
-        console.log(`[PRECISION-AI] Successfully completed clustering for ${eventId}`);
+        console.log(`[AI-OVERHAUL] Successfully completed for ${eventId}`);
       } catch (err) {
-        console.error('[PRECISION-AI] Processing error:', err);
+        console.error('[AI-OVERHAUL] Processing error:', err);
         event.processingStatus = 'failed';
         await event.save();
       }
     })();
 
-    res.json({ message: 'High-precision processing started' });
+    res.json({ message: 'Face clustering started' });
   } catch (error) {
     next(error);
   }
@@ -109,17 +113,17 @@ const matchFace = async (req, res, next) => {
       throw new Error('No face crop provided');
     }
 
-    console.log(`\n[SEARCH-AI] Matching face in event ${eventId}`);
+    console.log(`\n[AI-OVERHAUL] Matching face in event ${eventId}`);
 
     // 1. Get embedding from Python service
     const { embedding } = await matchFaceWithLocalAi(eventId, faceCropFile.buffer);
 
-    // 2. Nearest-Neighbor Search among all stored faces
+    // 2. Nearest-Neighbor Search among all stored faces for this event
     const faces = await Face.find({ eventId });
     
     let nearestFace = null;
     let minDistance = 1.0;
-    const DISTANCE_THRESHOLD = 0.4; // Strict threshold for Facenet512
+    const DISTANCE_THRESHOLD = 0.2; // Strict threshold for Facenet512 (cosine distance)
 
     for (const face of faces) {
       if (!face.embedding || face.embedding.length === 0) continue;
@@ -131,28 +135,29 @@ const matchFace = async (req, res, next) => {
       }
     }
 
-    console.log(`[SEARCH-AI] Nearest neighbor distance: ${minDistance.toFixed(4)}`);
+    console.log(`[AI-OVERHAUL] Nearest match distance: ${minDistance.toFixed(4)}`);
 
-    let matchedPhotoIds = [];
-    let matchedClusterId = null;
-
-    if (nearestFace && minDistance <= DISTANCE_THRESHOLD) {
-       console.log(`[SEARCH-AI] Confident match found! (Face ${nearestFace._id})`);
-       matchedClusterId = nearestFace.personClusterId;
-       const cluster = await PersonCluster.findById(matchedClusterId);
-       if (cluster) {
-         matchedPhotoIds = cluster.photoIds;
-       }
-    } else {
-       console.log(`[SEARCH-AI] No confident match found (Min dist: ${minDistance.toFixed(4)} > ${DISTANCE_THRESHOLD})`);
+    if (!nearestFace || minDistance > DISTANCE_THRESHOLD) {
+        console.log(`[AI-OVERHAUL] No confident match found (Min dist: ${minDistance.toFixed(4)} > ${DISTANCE_THRESHOLD})`);
+        return res.status(404).json({
+            success: false,
+            message: "No strong match found. Try selecting a clearer face."
+        });
     }
 
-    // Fallback: If no match, return ONLY the selected photo
-    if (matchedPhotoIds.length === 0) {
-      matchedPhotoIds = [selectedPhotoId];
+    console.log(`[AI-OVERHAUL] Confident match found! (Face ${nearestFace._id})`);
+    const matchedClusterId = nearestFace.personClusterId;
+    const cluster = await PersonCluster.findById(matchedClusterId).populate('photoIds');
+
+    if (!cluster) {
+        return res.status(404).json({
+            success: false,
+            message: "Matched cluster no longer exists."
+        });
     }
 
-    const photos = await Photo.find({ _id: { $in: matchedPhotoIds } }).sort({ qualityScore: -1 });
+    // Return the photos from the cluster
+    const photos = cluster.photoIds.sort((a, b) => b.qualityScore - a.qualityScore);
 
     const guestSearch = await GuestSearch.create({
       eventId,
@@ -166,10 +171,10 @@ const matchFace = async (req, res, next) => {
       success: true,
       searchId: guestSearch._id,
       photos,
-      minDistance // For debugging on client if needed
+      minDistance
     });
   } catch (error) {
-    console.error('[SEARCH-AI] Match Error:', error.message);
+    console.error('[AI-OVERHAUL] Match Error:', error.message);
     next(error);
   }
 };

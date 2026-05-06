@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import Navbar from '../components/Navbar';
 import UploadBox from '../components/UploadBox';
@@ -8,6 +8,7 @@ import { motion } from 'framer-motion';
 
 const EventDetails = () => {
   const { eventId } = useParams();
+  const navigate = useNavigate();
   const [event, setEvent] = useState(null);
   const [photos, setPhotos] = useState([]);
   const [uploading, setUploading] = useState(false);
@@ -43,7 +44,7 @@ const EventDetails = () => {
     files.forEach(file => formData.append('photos', file));
 
     try {
-      await api.post(`/photos/upload/${eventId}`, formData, {
+      await api.post(`/memora/upload-event/${eventId}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       fetchEventData();
@@ -56,9 +57,15 @@ const EventDetails = () => {
   };
 
   const handleProcessAI = async () => {
+    // Check if event is paid
+    if (event.paymentStatus !== 'paid') {
+      navigate(`/pricing/${eventId}`);
+      return;
+    }
+
     setProcessing(true);
     try {
-      await api.post(`/ai/process-event/${eventId}`);
+      await api.post(`/memora/process-event/${eventId}`);
       fetchEventData();
     } catch (error) {
       console.error('Processing failed', error);

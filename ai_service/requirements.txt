@@ -1,7 +1,7 @@
 flask
-deepface
 numpy
 opencv-python
-scikit-learn
 requests
-tf-keras
+networkx
+face_recognition
+Pillow

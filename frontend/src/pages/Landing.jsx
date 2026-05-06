@@ -11,8 +11,8 @@ const Landing = () => {
 
       {/* Nav */}
       <nav className="relative z-10 px-8 py-6 flex justify-between items-center max-w-7xl mx-auto">
-        <div className="flex items-center space-x-2">
-          <Camera className="w-8 h-8 text-accent" />
+        <div className="flex items-center space-x-3">
+          <img src="/logo.png" alt="Memora Logo" className="w-12 h-12 object-contain" />
           <span className="text-2xl font-bold tracking-tight">Memora</span>
         </div>
         <div className="space-x-4">

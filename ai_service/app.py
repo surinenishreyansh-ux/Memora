@@ -3,146 +3,249 @@ import numpy as np
 import cv2
 import os
 import requests
-from sklearn.cluster import DBSCAN
-from scipy.spatial.distance import cosine
-import time
+import random
+from collections import Counter
 from pathlib import Path
+import time
+import face_recognition
+from PIL import Image
+import sys
+import networkx as nx
 
 app = Flask(__name__)
+
+# LOGGING
+LOG_FILE = Path(os.getcwd()) / 'ai_service.log'
+
+def log(msg):
+    with open(LOG_FILE, 'a') as f:
+        f.write(f"[{time.ctime()}] {msg}\n")
+    print(msg)
+    sys.stdout.flush()
 
 # CONFIGURATION
 DEBUG_DIR = Path('debug_faces')
 DEBUG_DIR.mkdir(exist_ok=True)
 
-# MODEL PATHS (Will download if missing)
-YUNET_URL = "https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx"
-SFACE_URL = "https://github.com/opencv/opencv_zoo/raw/main/models/face_recognition_sface/face_recognition_sface_2021dec.onnx"
-
-YUNET_PATH = "face_detection_yunet.onnx"
-SFACE_PATH = "face_recognition_sface.onnx"
-
-def download_model(url, path):
-    if not os.path.exists(path):
-        print(f"Downloading model from {url}...")
-        with requests.get(url, stream=True) as r:
-            r.raise_for_status()
-            with open(path, 'wb') as f:
-                for chunk in r.iter_content(chunk_size=8192):
-                    f.write(chunk)
-        print(f"Successfully downloaded {path}")
-
-# Initialize models
-download_model(YUNET_URL, YUNET_PATH)
-download_model(SFACE_URL, SFACE_PATH)
-
-# Load YuNet
-detector = cv2.FaceDetectorYN.create(
-    model=YUNET_PATH,
-    config="",
-    input_size=(320, 320),
-    score_threshold=0.6,
-    nms_threshold=0.3,
-    top_k=5000
-)
-
-# Load SFace
-recognizer = cv2.FaceRecognizerSF.create(
-    model=SFACE_PATH,
-    config=""
-)
-
-def normalize_embedding(emb):
-    emb = np.array(emb)
-    norm = np.linalg.norm(emb)
-    if norm == 0:
-        return emb.tolist()
-    return (emb / norm).tolist()
+def run_clustering(faces, threshold=0.55):
+    """
+    Chinese Whispers clustering implementation using Euclidean distance
+    """
+    if not faces:
+        return {}
+        
+    G = nx.Graph()
+    for i in range(len(faces)):
+        G.add_node(i)
+        
+    # Add edges between similar faces
+    similarities = []
+    for i in range(len(faces)):
+        for j in range(i + 1, len(faces)):
+            emb1 = np.array(faces[i]['embedding'])
+            emb2 = np.array(faces[j]['embedding'])
+            
+            # Euclidean distance
+            dist = np.linalg.norm(emb1 - emb2)
+            similarities.append(dist)
+            
+            # For Chinese Whispers, we need a weight (higher is more similar)
+            # Threshold 0.55 for distance means weight should be positive
+            if dist < threshold:
+                # Weight = inverse distance
+                weight = 1.0 - dist 
+                G.add_edge(i, j, weight=weight)
+                
+    if similarities:
+        log(f"Distance Stats: Min={min(similarities):.4f}, Max={max(similarities):.4f}, Avg={np.mean(similarities):.4f}")
+        log(f"Edges added: {G.number_of_edges()} / {len(faces)*(len(faces)-1)//2}")
+                
+    # Chinese Whispers Algorithm
+    nodes = list(G.nodes())
+    random.shuffle(nodes)
+    labels = {n: n for n in nodes}
+    
+    for _ in range(20):
+        changed = False
+        random.shuffle(nodes)
+        for u in nodes:
+            neighbors = list(G.neighbors(u))
+            if not neighbors:
+                continue
+                
+            neighbor_labels = Counter()
+            for v in neighbors:
+                weight = G[u][v].get('weight', 1.0)
+                neighbor_labels[labels[v]] += weight
+                
+            if neighbor_labels:
+                max_label = neighbor_labels.most_common(1)[0][0]
+                if labels[u] != max_label:
+                    labels[u] = max_label
+                    changed = True
+        if not changed:
+            break
+            
+    return labels
 
 @app.route('/health', methods=['GET'])
 def health():
-    return jsonify({"status": "ready", "model": "SFace", "detector": "YuNet"})
+    return jsonify({
+        "status": "ready", 
+        "engine": "face_recognition (dlib)", 
+        "model": "128-d encoding"
+    })
 
 @app.route('/process-photos', methods=['POST'])
 def process_photos():
     data = request.json
     photos = data.get('photos', [])
     event_id = data.get('eventId')
+    threshold = data.get('threshold', 0.55) # Tolerance in face_recognition
     
     event_debug_dir = DEBUG_DIR / str(event_id)
     event_debug_dir.mkdir(exist_ok=True, parents=True)
     
     all_faces = []
-    print(f"\n--- PROCESSING EVENT {event_id} ---")
+    log(f"\n--- PROCESSING EVENT {event_id} ({len(photos)} photos) USING FACE_RECOGNITION ---")
 
-    for photo_idx, photo in enumerate(photos):
+    for photo in photos:
         photo_url = photo.get('url')
         photo_id = photo.get('id')
         
         try:
-            response = requests.get(photo_url)
-            img_array = np.frombuffer(response.content, np.uint8)
-            img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
-            h, w, _ = img.shape
+            # Download image
+            response = requests.get(photo_url, stream=True, timeout=15)
+            # Use face_recognition to load image from raw bytes
+            img = face_recognition.load_image_file(response.raw)
             
-            detector.setInputSize((w, h))
-            _, faces = detector.detect(img)
+            # 1. Detect face locations
+            # Using 'hog' for speed, 'cnn' is better but needs GPU
+            face_locations = face_recognition.face_locations(img, model="hog")
             
-            if faces is not None:
-                print(f"Photo {photo_idx}: Detected {len(faces)} faces")
-                for i, face in enumerate(faces):
-                    # face: [x1, y1, w, h, x_re, y_re, x_le, y_le, x_nt, y_nt, x_rm, y_rm, x_lm, y_lm, score]
-                    aligned_face = recognizer.alignCrop(img, face)
-                    embedding = recognizer.feature(aligned_face)
-                    
-                    x, y, fw, fh = map(int, face[:4])
-                    face_crop = img[max(0,y):min(h,y+fh), max(0,x):min(w,x+fw)]
-                    
-                    crop_name = f"photo_{photo_idx}_face_{i}.jpg"
-                    if face_crop.size > 0:
-                        cv2.imwrite(str(event_debug_dir / crop_name), face_crop)
-                    
-                    all_faces.append({
-                        "photoId": photo_id,
-                        "embedding": normalize_embedding(embedding[0]),
-                        "boundingBox": {"x": x, "y": y, "w": fw, "h": fh},
-                        "confidence": float(face[-1]),
-                        "clusterId": None
-                    })
+            # 2. Extract encodings
+            encodings = face_recognition.face_encodings(img, face_locations)
+            
+            log(f"  Photo {photo_id}: Found {len(encodings)} faces")
+
+            for i, (location, encoding) in enumerate(zip(face_locations, encodings)):
+                top, right, bottom, left = location
+                w, h = right - left, bottom - top
+                
+                # Save crop for debug
+                face_crop = img[top:bottom, left:right]
+                if face_crop.size > 0:
+                    crop_name = f"photo_{photo_id}_face_{i}.jpg"
+                    # Convert to BGR for OpenCV
+                    cv2.imwrite(str(event_debug_dir / crop_name), cv2.cvtColor(face_crop, cv2.COLOR_RGB2BGR))
+                
+                all_faces.append({
+                    "id": len(all_faces),
+                    "photoId": photo_id,
+                    "faceIndex": i,
+                    "embedding": encoding.tolist(),
+                    "boundingBox": {"x": int(left), "y": int(top), "w": int(w), "h": int(h)},
+                    "confidence": 1.0 # dlib doesn't give prob easily
+                })
         except Exception as e:
-            print(f"Error photo {photo_id}: {str(e)}")
+            log(f"Error processing photo {photo_id}: {str(e)}")
             
     if not all_faces:
-        return jsonify({"faces": [], "clusters": {}})
+        log("No faces detected in this batch.")
+        return jsonify({"faces": [], "clusters": []})
         
-    embeddings = np.array([f['embedding'] for f in all_faces])
-    # SFace cosine distance threshold is usually 0.3-0.4
-    clustering = DBSCAN(eps=0.35, min_samples=1, metric='cosine').fit(embeddings)
+    # RUN REAL CLUSTERING
+    log(f"Running Chinese Whispers on {len(all_faces)} faces...")
+    labels = run_clustering(all_faces, threshold=threshold)
     
-    clusters = {}
-    for idx, label in enumerate(clustering.labels_):
-        label_str = str(label)
-        if label_str not in clusters: clusters[label_str] = []
-        clusters[label_str].append(all_faces[idx]['photoId'])
-        all_faces[idx]['clusterId'] = label_str
+    clusters_output = {}
+    for i, face in enumerate(all_faces):
+        label = str(labels[i])
+        face['clusterId'] = label
+        
+        if label not in clusters_output:
+            clusters_output[label] = {"clusterId": label, "faceIds": [], "photoIds": []}
+        
+        clusters_output[label]["faceIds"].append(face['id'])
+        if face['photoId'] not in clusters_output[label]["photoIds"]:
+            clusters_output[label]["photoIds"].append(face['photoId'])
 
-    return jsonify({"faces": all_faces, "clusters": clusters})
+    log(f"Clustering complete. Found {len(clusters_output)} unique people.")
+    return jsonify({"faces": all_faces, "clusters": list(clusters_output.values())})
+
+@app.route('/cluster-only', methods=['POST'])
+def cluster_only():
+    data = request.json
+    faces = data.get('faces', [])
+    threshold = data.get('threshold', 0.55)
+    
+    if not faces:
+        return jsonify({"clusters": []})
+        
+    log(f"Running cluster-only on {len(faces)} embeddings...")
+    labels = run_clustering(faces, threshold=threshold)
+    
+    clusters_output = {}
+    for i, face in enumerate(faces):
+        label = str(labels[i])
+        if label not in clusters_output:
+            clusters_output[label] = {"clusterId": label, "faceIds": [], "photoIds": []}
+        
+        clusters_output[label]["faceIds"].append(face['id'])
+        if face.get('photoId') and face['photoId'] not in clusters_output[label]["photoIds"]:
+            clusters_output[label]["photoIds"].append(face['photoId'])
+            
+    return jsonify({"clusters": list(clusters_output.values())})
 
 @app.route('/match-face', methods=['POST'])
 def match_face():
+    if 'faceCrop' not in request.files:
+        return jsonify({
+            "embedding": [],
+            "faceDetected": False,
+            "multipleFaces": False,
+            "error": "No face crop provided"
+        }), 400
+        
     file = request.files['faceCrop']
-    img_array = np.frombuffer(file.read(), np.uint8)
-    img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
-    h, w, _ = img.shape
-    
-    detector.setInputSize((w, h))
-    _, faces = detector.detect(img)
-    
-    if faces is not None:
-        aligned_face = recognizer.alignCrop(img, faces[0])
-        embedding = recognizer.feature(aligned_face)
-        return jsonify({"embedding": normalize_embedding(embedding[0])})
-    
-    return jsonify({"error": "No face detected"}), 404
+    try:
+        img = face_recognition.load_image_file(file)
+        
+        # Detect faces to check for multiple
+        face_locations = face_recognition.face_locations(img)
+        
+        if not face_locations:
+            return jsonify({
+                "embedding": [],
+                "faceDetected": False,
+                "multipleFaces": False
+            })
+            
+        is_multiple = len(face_locations) > 1
+        
+        # Extract encoding for the primary face
+        encodings = face_recognition.face_encodings(img, face_locations)
+        if not encodings:
+            return jsonify({
+                "embedding": [],
+                "faceDetected": False,
+                "multipleFaces": is_multiple
+            })
+            
+        return jsonify({
+            "embedding": encodings[0].tolist(),
+            "faceDetected": True,
+            "multipleFaces": is_multiple
+        })
+    except Exception as e:
+        log(f"Match face error: {str(e)}")
+        return jsonify({
+            "embedding": [],
+            "faceDetected": False,
+            "multipleFaces": False,
+            "error": str(e)
+        }), 500
 
 if __name__ == '__main__':
-    app.run(port=8000)
+    port = int(os.environ.get('PORT', 8001))
+    app.run(port=port, host='0.0.0.0')

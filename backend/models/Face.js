@@ -12,20 +12,17 @@ const faceSchema = mongoose.Schema(
       required: true,
       ref: 'Photo',
     },
-    faceExternalId: {
-      type: String,
+    faceIndex: {
+      type: Number,
     },
     personClusterId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'PersonCluster',
     },
     boundingBox: {
-      type: Object, // { Width, Height, Left, Top }
+      type: Object, // { x, y, w, h }
     },
     confidence: {
-      type: Number,
-    },
-    qualityScore: {
       type: Number,
     },
     embedding: {
@@ -36,6 +33,9 @@ const faceSchema = mongoose.Schema(
     timestamps: true,
   }
 );
+
+faceSchema.index({ eventId: 1 });
+faceSchema.index({ personClusterId: 1 });
 
 const Face = mongoose.model('Face', faceSchema);
 

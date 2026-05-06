@@ -7,7 +7,7 @@ const personClusterSchema = mongoose.Schema(
       required: true,
       ref: 'Event',
     },
-    clusterName: {
+    clusterId: {
       type: String,
     },
     faceIds: [
@@ -17,12 +17,6 @@ const personClusterSchema = mongoose.Schema(
       },
     ],
     photoIds: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Photo',
-      },
-    ],
-    bestPhotoIds: [
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Photo',

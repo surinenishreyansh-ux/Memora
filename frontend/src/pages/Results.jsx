@@ -1,16 +1,21 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useLocation } from 'react-router-dom';
 import api from '../api/axios';
 import { motion } from 'framer-motion';
-import { Download, Share2, ArrowLeft, Trash2, Heart } from 'lucide-react';
+import { Download, Share2, ArrowLeft, Trash2, Heart, Package } from 'lucide-react';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 
 const Results = () => {
   const { searchId } = useParams();
-  const [photos, setPhotos] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const location = useLocation();
+  const [photos, setPhotos] = useState(location.state?.photos || []);
+  const [loading, setLoading] = useState(!location.state?.photos);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    if (photos.length > 0) return; // Already have photos from state
+
     const fetchResults = async () => {
       try {
         const { data } = await api.get(`/ai/results/${searchId}`);
@@ -22,7 +27,31 @@ const Results = () => {
       }
     };
     fetchResults();
-  }, [searchId]);
+  }, [searchId, photos.length]);
+
+  const handleDownloadAll = async () => {
+    setLoading(true);
+    const zip = new JSZip();
+    const folder = zip.folder("my-memories");
+
+    try {
+      const promises = photos.map(async (photoData, i) => {
+        const url = typeof photoData === 'string' ? photoData : photoData.imageUrl;
+        const response = await fetch(url);
+        const blob = await response.blob();
+        folder.file(`memory-${i + 1}.jpg`, blob);
+      });
+
+      await Promise.all(promises);
+      const content = await zip.generateAsync({ type: "blob" });
+      saveAs(content, "memora-memories.zip");
+    } catch (error) {
+      console.error('Download all failed', error);
+      alert('Failed to download all photos. Some images might be blocked by browser security.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleDownload = async (url, filename) => {
     try {
@@ -105,9 +134,18 @@ const Results = () => {
         >
           <Heart className="w-12 h-12 text-accent mx-auto mb-4" />
           <h2 className="text-3xl md:text-5xl font-bold mb-4">Found {photos.length} Memories</h2>
-          <p className="text-gray-400 max-w-2xl mx-auto">
+          <p className="text-gray-400 max-w-2xl mx-auto mb-6">
             These are the photos where our AI identified you. Download your favorites or share the gallery.
           </p>
+          {photos.length > 0 && (
+            <button 
+              onClick={handleDownloadAll}
+              className="inline-flex items-center gap-2 bg-accent text-studio-900 px-8 py-3.5 rounded-xl font-bold hover:bg-accent-light transition-all shadow-lg shadow-accent/20"
+            >
+              <Package className="w-5 h-5" />
+              Download All ({photos.length})
+            </button>
+          )}
         </motion.div>
 
         {photos.length === 0 ? (
@@ -116,57 +154,60 @@ const Results = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {photos.map((photo, i) => (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: i * 0.1 }}
-                key={photo._id}
-                className="group relative rounded-2xl overflow-hidden shadow-2xl bg-studio-800"
-              >
-                <img 
-                  src={photo.imageUrl} 
-                  alt="Matched memory" 
-                  className="w-full h-auto object-cover transition-transform duration-700 group-hover:scale-110"
-                />
-                
-                {/* Overlay with buttons */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col justify-end p-6">
-                  <div className="flex items-center justify-between gap-3">
-                    <button 
-                      onClick={() => handleDownload(photo.imageUrl, `memora-${photo._id}.jpg`)}
-                      className="flex-1 bg-white text-studio-900 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-accent transition-colors"
-                    >
-                      <Download className="w-5 h-5" />
-                      Download
-                    </button>
-                    <button 
-                      className="p-3 bg-white/10 backdrop-blur-md rounded-xl hover:bg-white/20 transition-colors"
-                      onClick={() => {
-                        if (navigator.share) {
-                           navigator.share({
-                             title: 'My Memory',
-                             url: photo.imageUrl
-                           });
-                        } else {
-                           alert('Sharing is not supported in this browser. Image URL copied to clipboard.');
-                           navigator.clipboard.writeText(photo.imageUrl);
-                        }
-                      }}
-                    >
-                      <Share2 className="w-5 h-5" />
-                    </button>
+            {photos.map((photoData, i) => {
+              const photo = typeof photoData === 'string' ? { imageUrl: photoData, _id: i } : photoData;
+              return (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: i * 0.1 }}
+                  key={photo._id || i}
+                  className="group relative rounded-2xl overflow-hidden shadow-2xl bg-studio-800"
+                >
+                  <img 
+                    src={photo.imageUrl} 
+                    alt="Matched memory" 
+                    className="w-full h-auto object-cover transition-transform duration-700 group-hover:scale-110"
+                  />
+                  
+                  {/* Overlay with buttons */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col justify-end p-6">
+                    <div className="flex items-center justify-between gap-3">
+                      <button 
+                        onClick={() => handleDownload(photo.imageUrl, `memora-${photo._id || i}.jpg`)}
+                        className="flex-1 bg-white text-studio-900 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-accent transition-colors"
+                      >
+                        <Download className="w-5 h-5" />
+                        Download
+                      </button>
+                      <button 
+                        className="p-3 bg-white/10 backdrop-blur-md rounded-xl hover:bg-white/20 transition-colors"
+                        onClick={() => {
+                          if (navigator.share) {
+                             navigator.share({
+                               title: 'My Memory',
+                               url: photo.imageUrl
+                             });
+                          } else {
+                             alert('Sharing is not supported in this browser. Image URL copied to clipboard.');
+                             navigator.clipboard.writeText(photo.imageUrl);
+                          }
+                        }}
+                      >
+                        <Share2 className="w-5 h-5" />
+                      </button>
+                    </div>
                   </div>
-                </div>
 
-                {/* Quality badge if high score */}
-                {photo.qualityScore > 80 && (
-                  <div className="absolute top-4 left-4 bg-accent/90 text-studio-900 text-xs font-bold px-2 py-1 rounded shadow-lg backdrop-blur-sm">
-                    BEST SHOT
-                  </div>
-                )}
-              </motion.div>
-            ))}
+                  {/* Quality badge if high score */}
+                  {photo.qualityScore > 80 && (
+                    <div className="absolute top-4 left-4 bg-accent/90 text-studio-900 text-xs font-bold px-2 py-1 rounded shadow-lg backdrop-blur-sm">
+                      BEST SHOT
+                    </div>
+                  )}
+                </motion.div>
+              );
+            })}
           </div>
         )}
 

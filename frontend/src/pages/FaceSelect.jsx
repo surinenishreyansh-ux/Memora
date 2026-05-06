@@ -31,13 +31,18 @@ const FaceSelect = () => {
       formData.append('faceCrop', faceBlob, 'crop.jpg');
       formData.append('selectedPhotoId', photo._id);
 
-      const { data } = await api.post(`/ai/match-face/${eventId}`, formData, {
+      const { data } = await api.post(`/memora/search-face/${eventId}`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
       
-      navigate(`/results/${data.searchId}`);
+      if (data.matched) {
+        navigate(`/results/direct`, { state: { photos: data.photos, eventId } });
+      } else {
+        alert(data.message || 'No matching photos found.');
+        setLoading(false);
+      }
     } catch (error) {
       console.error(error);
       alert(error.response?.data?.message || 'Failed to find matching photos. Please try another photo or re-select your face.');

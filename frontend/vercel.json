@@ -1,4 +1,8 @@
 {
+  "buildCommand": "npm install && npm run build",
+  "outputDirectory": "dist",
+  "installCommand": "echo 'handled by build command'",
+  "framework": "vite",
   "rewrites": [
     {
       "source": "/(.*)",

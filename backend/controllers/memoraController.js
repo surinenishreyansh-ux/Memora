@@ -225,14 +225,12 @@ const processEvent = async (req, res, next) => {
 
         await Photo.updateMany({ eventId }, { processed: true });
         
-        event.processingStatus = 'completed';
-        await event.save();
+        await Event.findByIdAndUpdate(eventId, { processingStatus: 'completed' });
 
         console.log(`[MEMORA-AI] Manual processing complete for ${eventId}`);
       } catch (err) {
         console.error('[MEMORA-AI] Manual processing error:', err.message);
-        event.processingStatus = 'failed';
-        await event.save();
+        await Event.findByIdAndUpdate(eventId, { processingStatus: 'failed' });
       }
     })();
 

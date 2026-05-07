@@ -84,13 +84,11 @@ const processEvent = async (req, res, next) => {
 
         await Photo.updateMany({ eventId }, { processed: true });
 
-        event.processingStatus = 'completed';
-        await event.save();
+        await Event.findByIdAndUpdate(eventId, { processingStatus: 'completed' });
         console.log(`[AI-OVERHAUL] Successfully completed for ${eventId}`);
       } catch (err) {
         console.error('[AI-OVERHAUL] Processing error:', err);
-        event.processingStatus = 'failed';
-        await event.save();
+        await Event.findByIdAndUpdate(eventId, { processingStatus: 'failed' });
       }
     })();
 

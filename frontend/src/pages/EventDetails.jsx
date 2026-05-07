@@ -146,26 +146,29 @@ const EventDetails = () => {
             </h3>
             <p className="text-sm text-gray-400">Share this link with guests so they can find their photos.</p>
           </div>
-          <div className="flex w-full sm:w-auto bg-studio-900/50 rounded-xl border border-white/10 overflow-hidden">
-            <div className="px-4 py-3 text-sm text-gray-300 overflow-x-auto whitespace-nowrap max-w-xs md:max-w-md">
+          <div className="flex flex-col sm:flex-row w-full sm:w-auto bg-studio-900/50 rounded-xl border border-white/10 overflow-hidden">
+            <div className="px-3 sm:px-4 py-3 text-xs sm:text-sm text-gray-300 overflow-x-auto whitespace-nowrap w-full sm:max-w-md border-b sm:border-b-0 border-white/10 sm:border-r">
               {publicLink}
             </div>
-            <button 
-              onClick={copyToClipboard}
-              className="px-4 py-3 bg-white/5 hover:bg-white/10 text-white transition-colors border-l border-white/10 flex items-center gap-2"
-            >
-              <Copy className="w-4 h-4" />
-              {copied ? 'Copied!' : 'Copy'}
-            </button>
-            <a 
-              href={publicLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-4 py-3 bg-accent text-studio-900 hover:bg-accent-light transition-colors border-l border-white/10 flex items-center gap-2 font-medium"
-            >
-              <ExternalLink className="w-4 h-4" />
-              Open Link
-            </a>
+            <div className="flex w-full sm:w-auto">
+              <button 
+                onClick={copyToClipboard}
+                className="flex-1 sm:flex-none px-4 py-3 bg-white/5 hover:bg-white/10 text-white transition-colors border-r sm:border-r-0 sm:border-l border-white/10 flex items-center justify-center gap-2 text-sm"
+              >
+                <Copy className="w-4 h-4" />
+                {copied ? 'Copied!' : 'Copy'}
+              </button>
+              <a 
+                href={publicLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 sm:flex-none px-4 py-3 bg-accent text-studio-900 hover:bg-accent-light transition-colors sm:border-l border-white/10 flex items-center justify-center gap-2 font-medium text-sm"
+              >
+                <ExternalLink className="w-4 h-4" />
+                <span className="hidden sm:inline">Open Link</span>
+                <span className="sm:hidden">Open</span>
+              </a>
+            </div>
           </div>
         </div>
 

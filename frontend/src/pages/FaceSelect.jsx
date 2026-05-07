@@ -65,7 +65,7 @@ const FaceSelect = () => {
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-8"
         >
-          <h1 className="text-3xl md:text-4xl font-bold mb-3 flex items-center justify-center gap-3">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-3 flex items-center justify-center gap-2 sm:gap-3">
             <UserCircle className="w-8 h-8 text-accent" />
             Where are you?
           </h1>

@@ -133,7 +133,7 @@ const Results = () => {
           className="text-center mb-12"
         >
           <Heart className="w-12 h-12 text-accent mx-auto mb-4" />
-          <h2 className="text-3xl md:text-5xl font-bold mb-4">Found {photos.length} Memories</h2>
+          <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold mb-4">Found {photos.length} Memories</h2>
           <p className="text-gray-400 max-w-2xl mx-auto mb-6">
             These are the photos where our AI identified you. Download your favorites or share the gallery.
           </p>
@@ -153,7 +153,7 @@ const Results = () => {
             <p className="text-gray-400">No matching photos found. Try another photo or a different angle.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
             {photos.map((photoData, i) => {
               const photo = typeof photoData === 'string' ? { imageUrl: photoData, _id: i } : photoData;
               return (
@@ -171,11 +171,11 @@ const Results = () => {
                   />
                   
                   {/* Overlay with buttons */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col justify-end p-6">
-                    <div className="flex items-center justify-between gap-3">
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-300 flex flex-col justify-end p-3 sm:p-6">
+                    <div className="flex items-center justify-between gap-2 sm:gap-3">
                       <button 
                         onClick={() => handleDownload(photo.imageUrl, `memora-${photo._id || i}.jpg`)}
-                        className="flex-1 bg-white text-studio-900 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-accent transition-colors"
+                        className="flex-1 bg-white text-studio-900 py-2 sm:py-3 rounded-xl font-bold flex items-center justify-center gap-1 sm:gap-2 hover:bg-accent transition-colors text-xs sm:text-base"
                       >
                         <Download className="w-5 h-5" />
                         Download

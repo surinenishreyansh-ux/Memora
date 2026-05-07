@@ -10,14 +10,14 @@ const Landing = () => {
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-500/20 blur-[120px]" />
 
       {/* Nav */}
-      <nav className="relative z-10 px-8 py-6 flex justify-between items-center max-w-7xl mx-auto">
-        <div className="flex items-center space-x-3">
-          <img src="/logo.png" alt="Memora Logo" className="w-12 h-12 object-contain" />
-          <span className="text-2xl font-bold tracking-tight">Memora</span>
+      <nav className="relative z-10 px-4 sm:px-8 py-6 flex justify-between items-center max-w-7xl mx-auto">
+        <div className="flex items-center space-x-2 sm:space-x-3">
+          <img src="/logo.png" alt="Memora Logo" className="w-8 h-8 sm:w-12 sm:h-12 object-contain" />
+          <span className="text-xl sm:text-2xl font-bold tracking-tight">Memora</span>
         </div>
-        <div className="space-x-4">
-          <Link to="/login" className="px-5 py-2.5 text-sm font-medium hover:text-accent transition-colors">Studio Login</Link>
-          <Link to="/register" className="px-5 py-2.5 text-sm font-medium bg-white text-studio-900 rounded-full hover:bg-gray-100 transition-colors">Create Account</Link>
+        <div className="flex items-center space-x-2 sm:space-x-4">
+          <Link to="/login" className="hidden sm:inline-block px-4 py-2 sm:px-5 sm:py-2.5 text-sm font-medium hover:text-accent transition-colors">Studio Login</Link>
+          <Link to="/register" className="px-4 py-2 sm:px-5 sm:py-2.5 text-xs sm:text-sm font-medium bg-white text-studio-900 rounded-full hover:bg-gray-100 transition-colors whitespace-nowrap">Create Account</Link>
         </div>
       </nav>
 
@@ -29,27 +29,27 @@ const Landing = () => {
           transition={{ duration: 0.8 }}
           className="max-w-4xl"
         >
-          <div className="inline-flex items-center space-x-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 mb-8">
-            <Sparkles className="w-4 h-4 text-accent" />
-            <span className="text-sm font-medium">AI-Powered Event Memory Platform</span>
+          <div className="inline-flex items-center space-x-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-white/5 border border-white/10 mb-6 sm:mb-8">
+            <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 text-accent" />
+            <span className="text-xs sm:text-sm font-medium">AI-Powered Event Memory Platform</span>
           </div>
           
-          <h1 className="text-6xl md:text-8xl font-bold tracking-tight mb-8 leading-tight">
+          <h1 className="text-5xl sm:text-6xl md:text-8xl font-bold tracking-tight mb-6 sm:mb-8 leading-tight">
             Circle your face. <br/>
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-accent to-yellow-200">
               Get your memories instantly.
             </span>
           </h1>
           
-          <p className="text-xl text-gray-400 mb-12 max-w-2xl mx-auto leading-relaxed">
+          <p className="text-lg sm:text-xl text-gray-400 mb-10 sm:mb-12 max-w-2xl mx-auto leading-relaxed px-2">
             Photographers upload once. Guests get their personal event gallery instantly with our advanced facial recognition technology.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-6">
-            <Link to="/register" className="px-8 py-4 bg-accent text-studio-900 rounded-full font-semibold text-lg hover:bg-accent-light transition-all transform hover:scale-105 flex items-center space-x-2 w-full sm:w-auto justify-center">
+          <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-6 w-full max-w-md mx-auto sm:max-w-none">
+            <Link to="/register" className="px-6 sm:px-8 py-3.5 sm:py-4 bg-accent text-studio-900 rounded-full font-semibold text-base sm:text-lg hover:bg-accent-light transition-all transform hover:scale-105 flex items-center space-x-2 w-full sm:w-auto justify-center">
               <span>Start for Free</span>
             </Link>
-            <Link to="/login" className="px-8 py-4 bg-white/10 text-white rounded-full font-semibold text-lg hover:bg-white/20 transition-all border border-white/10 flex items-center space-x-2 w-full sm:w-auto justify-center">
+            <Link to="/login" className="px-6 sm:px-8 py-3.5 sm:py-4 bg-white/10 text-white rounded-full font-semibold text-base sm:text-lg hover:bg-white/20 transition-all border border-white/10 flex items-center space-x-2 w-full sm:w-auto justify-center">
               <ImageIcon className="w-5 h-5" />
               <span>Studio Login</span>
             </Link>

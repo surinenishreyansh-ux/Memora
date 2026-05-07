@@ -66,7 +66,7 @@ const GuestEvent = () => {
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-12"
         >
-          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">{event.name}</h1>
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 mb-4">{event.name}</h1>
           <p className="text-lg text-gray-500 mb-8 max-w-2xl mx-auto">
             Find your personal event photos instantly. Select any photo below where you appear clearly.
           </p>
@@ -86,7 +86,7 @@ const GuestEvent = () => {
         </motion.div>
 
         {/* Masonry-like grid for MVP, standard grid works too */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4">
           {photos.map((photo, i) => (
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
